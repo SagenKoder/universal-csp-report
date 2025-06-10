@@ -1,12 +1,12 @@
 module universal-csp-report
 
-go 1.21
+go 1.23.0
 
 require (
 	github.com/elastic/go-elasticsearch/v8 v8.11.1
 	github.com/gin-gonic/gin v1.9.1
 	github.com/sirupsen/logrus v1.9.3
-	golang.org/x/time v0.5.0
+	golang.org/x/time v0.12.0
 )
 
 require (
