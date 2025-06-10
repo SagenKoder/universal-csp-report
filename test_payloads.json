@@ -1,0 +1,471 @@
+{
+  "chrome_reports": [
+    {
+      "description": "Chrome 120 standard CSP violation",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      "payload": {
+        "csp-report": {
+          "document-uri": "https://example.com/page",
+          "referrer": "https://google.com",
+          "violated-directive": "script-src 'self'",
+          "original-policy": "default-src 'self'; script-src 'self'",
+          "blocked-uri": "https://evil.com/script.js",
+          "status-code": 200,
+          "script-sample": "console.log('malicious')",
+          "line-number": 42,
+          "column-number": 15,
+          "source-file": "https://example.com/inline-script"
+        }
+      }
+    },
+    {
+      "description": "Chrome inline script violation",
+      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+      "payload": {
+        "csp-report": {
+          "document-uri": "https://app.example.com/dashboard",
+          "violated-directive": "script-src 'self'",
+          "blocked-uri": "inline",
+          "original-policy": "script-src 'self' 'unsafe-hashes'",
+          "script-sample": "onclick=\"alert('click')\"",
+          "line-number": 156,
+          "column-number": 23
+        }
+      }
+    },
+    {
+      "description": "Chrome eval() violation",
+      "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36",
+      "payload": {
+        "csp-report": {
+          "document-uri": "https://webapp.example.com",
+          "violated-directive": "script-src 'self'",
+          "blocked-uri": "eval",
+          "original-policy": "script-src 'self'",
+          "script-sample": "eval(userInput)",
+          "line-number": 1,
+          "column-number": 1
+        }
+      }
+    },
+    {
+      "description": "Chrome style-src violation",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+      "payload": {
+        "csp-report": {
+          "document-uri": "https://blog.example.com/post/123",
+          "violated-directive": "style-src 'self'",
+          "blocked-uri": "https://fonts.googleapis.com/css2",
+          "original-policy": "default-src 'self'; style-src 'self'",
+          "status-code": 200
+        }
+      }
+    },
+    {
+      "description": "Chrome img-src violation",
+      "user_agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/120.0.6099.69 Mobile/15E148 Safari/604.1",
+      "payload": {
+        "csp-report": {
+          "document-uri": "https://mobile.example.com",
+          "violated-directive": "img-src 'self'",
+          "blocked-uri": "https://tracker.analytics.com/pixel.gif",
+          "original-policy": "img-src 'self' data:"
+        }
+      }
+    }
+  ],
+  "firefox_reports": [
+    {
+      "description": "Firefox 120 standard CSP violation",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/120.0",
+      "payload": {
+        "csp-report": {
+          "document-uri": "https://example.com/firefox-page",
+          "referrer": "",
+          "violated-directive": "script-src 'self'",
+          "original-policy": "default-src 'self'; script-src 'self'",
+          "blocked-uri": "https://malicious.com/script.js"
+        }
+      }
+    },
+    {
+      "description": "Firefox camelCase format",
+      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/119.0",
+      "payload": {
+        "cspReport": {
+          "documentURI": "https://example.com/firefox-camel",
+          "violatedDirective": "img-src 'self'",
+          "blockedURI": "https://tracker.com/pixel.gif",
+          "originalPolicy": "default-src 'self'; img-src 'self'"
+        }
+      }
+    },
+    {
+      "description": "Firefox inline style violation",
+      "user_agent": "Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/118.0",
+      "payload": {
+        "csp-report": {
+          "document-uri": "https://example.com/inline-style",
+          "violated-directive": "style-src 'self'",
+          "blocked-uri": "inline",
+          "original-policy": "style-src 'self'",
+          "script-sample": "style=\"background: red;\"",
+          "line-number": 15
+        }
+      }
+    },
+    {
+      "description": "Firefox connect-src WebSocket violation",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/117.0",
+      "payload": {
+        "csp-report": {
+          "document-uri": "https://chat.example.com",
+          "violated-directive": "connect-src 'self'",
+          "blocked-uri": "wss://external-websocket.com",
+          "original-policy": "connect-src 'self' wss://allowed-ws.example.com"
+        }
+      }
+    },
+    {
+      "description": "Firefox object-src violation",
+      "user_agent": "Mozilla/5.0 (Android 13; Mobile; rv:109.0) Gecko/118.0 Firefox/118.0",
+      "payload": {
+        "csp-report": {
+          "document-uri": "https://legacy.example.com/flash-content",
+          "violated-directive": "object-src 'none'",
+          "blocked-uri": "https://cdn.example.com/flash-player.swf",
+          "original-policy": "object-src 'none'"
+        }
+      }
+    }
+  ],
+  "safari_reports": [
+    {
+      "description": "Safari 17.1 desktop CSP violation",
+      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15",
+      "payload": {
+        "csp-report": {
+          "document-uri": "https://example.com/safari-page",
+          "violated-directive": "script-src 'self'",
+          "blocked-uri": "https://ads.com/tracker.js",
+          "original-policy": "default-src 'self'"
+        }
+      }
+    },
+    {
+      "description": "Safari iOS CSP violation",
+      "user_agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1",
+      "payload": {
+        "csp-report": {
+          "document-uri": "https://mobile.example.com/page",
+          "violated-directive": "connect-src 'self'",
+          "blocked-uri": "wss://websocket.example.com",
+          "original-policy": "connect-src 'self'"
+        }
+      }
+    },
+    {
+      "description": "Safari font-src violation",
+      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Safari/605.1.15",
+      "payload": {
+        "csp-report": {
+          "document-uri": "https://typography.example.com",
+          "violated-directive": "font-src 'self'",
+          "blocked-uri": "https://fonts.gstatic.com/font.woff2",
+          "original-policy": "font-src 'self' data:"
+        }
+      }
+    },
+    {
+      "description": "Safari frame-src violation",
+      "user_agent": "Mozilla/5.0 (iPad; CPU OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1",
+      "payload": {
+        "csp-report": {
+          "document-uri": "https://embed.example.com",
+          "violated-directive": "frame-src 'self'",
+          "blocked-uri": "https://youtube.com/embed/video123",
+          "original-policy": "frame-src 'self' https://trusted-embeds.com"
+        }
+      }
+    }
+  ],
+  "edge_reports": [
+    {
+      "description": "Edge Chromium 120 CSP violation",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",
+      "payload": {
+        "csp-report": {
+          "document-uri": "https://example.com/edge-page",
+          "violated-directive": "object-src 'none'",
+          "blocked-uri": "https://example.com/plugin.swf",
+          "original-policy": "object-src 'none'",
+          "status-code": 200
+        }
+      }
+    },
+    {
+      "description": "Edge Legacy CSP violation",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.102 Safari/537.36 Edge/18.19041",
+      "payload": {
+        "csp-report": {
+          "document-uri": "https://example.com/legacy-edge",
+          "violated-directive": "frame-src 'self'",
+          "blocked-uri": "https://iframe.malicious.com",
+          "original-policy": "frame-src 'self'"
+        }
+      }
+    },
+    {
+      "description": "Edge media-src violation",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36 Edg/119.0.0.0",
+      "payload": {
+        "csp-report": {
+          "document-uri": "https://media.example.com/player",
+          "violated-directive": "media-src 'self'",
+          "blocked-uri": "https://external-cdn.com/video.mp4",
+          "original-policy": "media-src 'self' https://trusted-cdn.example.com"
+        }
+      }
+    }
+  ],
+  "report_to_api": [
+    {
+      "description": "Report-To API standard format",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      "payload": {
+        "body": {
+          "document-uri": "https://example.com/report-to",
+          "violated-directive": "script-src 'self'",
+          "blocked-uri": "https://analytics.com/track.js",
+          "original-policy": "script-src 'self'",
+          "disposition": "enforce"
+        }
+      }
+    },
+    {
+      "description": "Report-To API with snake_case",
+      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+      "payload": {
+        "body": {
+          "document_uri": "https://example.com/snake-case",
+          "violated_directive": "img-src 'self'",
+          "blocked_uri": "https://cdn.example.com/image.jpg",
+          "original_policy": "img-src 'self'",
+          "effective_directive": "img-src",
+          "disposition": "report"
+        }
+      }
+    },
+    {
+      "description": "Report-To API CSP Level 3",
+      "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+      "payload": {
+        "body": {
+          "document-uri": "https://csp3.example.com",
+          "violated-directive": "trusted-types 'allow-duplicates'",
+          "blocked-uri": "trusted-types-policy-violation",
+          "original-policy": "trusted-types default; require-trusted-types-for 'script'",
+          "sample": "document.createElement('script').innerHTML = userContent",
+          "line-number": 67,
+          "column-number": 12,
+          "source-file": "https://csp3.example.com/app.js"
+        }
+      }
+    }
+  ],
+  "malformed_reports": [
+    {
+      "description": "Empty CSP report object",
+      "user_agent": "Mozilla/5.0 Chrome/120.0.0.0",
+      "payload": {
+        "csp-report": {}
+      }
+    },
+    {
+      "description": "Missing nested report object",
+      "user_agent": "Mozilla/5.0 Chrome/120.0.0.0",
+      "payload": {
+        "document-uri": "https://example.com/direct",
+        "violated-directive": "script-src 'self'",
+        "blocked-uri": "https://example.com/script.js"
+      }
+    },
+    {
+      "description": "Null values in report",
+      "user_agent": "Mozilla/5.0 Chrome/120.0.0.0",
+      "payload": {
+        "csp-report": {
+          "document-uri": null,
+          "violated-directive": null,
+          "blocked-uri": "https://example.com/script.js",
+          "original-policy": null
+        }
+      }
+    },
+    {
+      "description": "Mixed data types",
+      "user_agent": "Mozilla/5.0 Chrome/120.0.0.0",
+      "payload": {
+        "csp-report": {
+          "document-uri": "https://example.com",
+          "violated-directive": "script-src 'self'",
+          "blocked-uri": "https://example.com/script.js",
+          "line-number": "not-a-number",
+          "status-code": "200",
+          "column-number": true
+        }
+      }
+    },
+    {
+      "description": "Very large payload",
+      "user_agent": "Mozilla/5.0 Chrome/120.0.0.0",
+      "payload": {
+        "csp-report": {
+          "document-uri": "https://example.com/large",
+          "violated-directive": "script-src 'self'",
+          "blocked-uri": "inline",
+          "script-sample": "LARGE_CONTENT_PLACEHOLDER"
+        }
+      }
+    }
+  ],
+  "unicode_and_special": [
+    {
+      "description": "Unicode URLs and content",
+      "user_agent": "Mozilla/5.0 Chrome/120.0.0.0",
+      "payload": {
+        "csp-report": {
+          "document-uri": "https://example.com/测试页面",
+          "violated-directive": "script-src 'self'",
+          "blocked-uri": "https://example.com/スクリプト.js",
+          "script-sample": "alert('مرحبا بالعالم');"
+        }
+      }
+    },
+    {
+      "description": "Special characters and escapes",
+      "user_agent": "Mozilla/5.0 Chrome/120.0.0.0",
+      "payload": {
+        "csp-report": {
+          "document-uri": "https://example.com/special\"chars",
+          "violated-directive": "script-src 'self'",
+          "blocked-uri": "inline",
+          "script-sample": "alert('Hello \"World\"! \\n\\t\\r');"
+        }
+      }
+    },
+    {
+      "description": "URL-encoded characters",
+      "user_agent": "Mozilla/5.0 Chrome/120.0.0.0",
+      "payload": {
+        "csp-report": {
+          "document-uri": "https://example.com/path%20with%20spaces",
+          "violated-directive": "script-src 'self'",
+          "blocked-uri": "https://example.com/script%2Ename.js",
+          "referrer": "https://google.com/search?q=test%20query"
+        }
+      }
+    }
+  ],
+  "all_directive_types": [
+    {
+      "description": "default-src violation",
+      "user_agent": "Mozilla/5.0 Chrome/120.0.0.0",
+      "payload": {
+        "csp-report": {
+          "document-uri": "https://example.com/default",
+          "violated-directive": "default-src 'self'",
+          "blocked-uri": "https://external.com/resource",
+          "original-policy": "default-src 'self'"
+        }
+      }
+    },
+    {
+      "description": "form-action violation",
+      "user_agent": "Mozilla/5.0 Chrome/120.0.0.0",
+      "payload": {
+        "csp-report": {
+          "document-uri": "https://example.com/form",
+          "violated-directive": "form-action 'self'",
+          "blocked-uri": "https://malicious.com/submit",
+          "original-policy": "form-action 'self'"
+        }
+      }
+    },
+    {
+      "description": "frame-ancestors violation",
+      "user_agent": "Mozilla/5.0 Chrome/120.0.0.0",
+      "payload": {
+        "csp-report": {
+          "document-uri": "https://example.com/iframe",
+          "violated-directive": "frame-ancestors 'none'",
+          "blocked-uri": "https://attacker.com",
+          "original-policy": "frame-ancestors 'none'"
+        }
+      }
+    },
+    {
+      "description": "base-uri violation",
+      "user_agent": "Mozilla/5.0 Chrome/120.0.0.0",
+      "payload": {
+        "csp-report": {
+          "document-uri": "https://example.com/base",
+          "violated-directive": "base-uri 'self'",
+          "blocked-uri": "https://malicious.com/base",
+          "original-policy": "base-uri 'self'"
+        }
+      }
+    },
+    {
+      "description": "manifest-src violation",
+      "user_agent": "Mozilla/5.0 Chrome/120.0.0.0",
+      "payload": {
+        "csp-report": {
+          "document-uri": "https://pwa.example.com",
+          "violated-directive": "manifest-src 'self'",
+          "blocked-uri": "https://cdn.example.com/manifest.json",
+          "original-policy": "manifest-src 'self'"
+        }
+      }
+    },
+    {
+      "description": "worker-src violation",
+      "user_agent": "Mozilla/5.0 Chrome/120.0.0.0",
+      "payload": {
+        "csp-report": {
+          "document-uri": "https://worker.example.com",
+          "violated-directive": "worker-src 'self'",
+          "blocked-uri": "https://cdn.worker.com/worker.js",
+          "original-policy": "worker-src 'self'"
+        }
+      }
+    },
+    {
+      "description": "upgrade-insecure-requests violation",
+      "user_agent": "Mozilla/5.0 Chrome/120.0.0.0",
+      "payload": {
+        "csp-report": {
+          "document-uri": "https://secure.example.com",
+          "violated-directive": "upgrade-insecure-requests",
+          "blocked-uri": "http://insecure.example.com/resource",
+          "original-policy": "upgrade-insecure-requests"
+        }
+      }
+    },
+    {
+      "description": "trusted-types violation",
+      "user_agent": "Mozilla/5.0 Chrome/120.0.0.0",
+      "payload": {
+        "csp-report": {
+          "document-uri": "https://secure.example.com/tt",
+          "violated-directive": "trusted-types default",
+          "blocked-uri": "trusted-types-policy-violation",
+          "original-policy": "trusted-types default; require-trusted-types-for 'script'",
+          "script-sample": "element.innerHTML = userContent",
+          "line-number": 45,
+          "column-number": 8
+        }
+      }
+    }
+  ]
+}
