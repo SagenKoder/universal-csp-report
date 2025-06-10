@@ -1,0 +1,234 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+      release_id: ${{ steps.create_release.outputs.id }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Generate changelog
+      id: changelog
+      run: |
+        # Get the previous tag
+        PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
+        
+        # Generate changelog
+        if [ -n "$PREVIOUS_TAG" ]; then
+          echo "## Changes since $PREVIOUS_TAG" > CHANGELOG.md
+          git log --pretty=format:"* %s (%h)" $PREVIOUS_TAG..HEAD >> CHANGELOG.md
+        else
+          echo "## Initial Release" > CHANGELOG.md
+          echo "First release of Universal CSP Report Processor" >> CHANGELOG.md
+        fi
+        
+        # Set output for use in release
+        echo "changelog<<EOF" >> $GITHUB_OUTPUT
+        cat CHANGELOG.md >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref_name }}
+        release_name: Release ${{ github.ref_name }}
+        body: |
+          # Universal CSP Report Processor ${{ github.ref_name }}
+          
+          A high-performance Go application for processing Content Security Policy violation reports from all major browsers.
+          
+          ## Features
+          - 🚀 High-performance processing (100K+ requests/minute)
+          - 🌐 Universal browser support (Chrome, Firefox, Safari, Edge)
+          - 📊 Elasticsearch integration with structured data
+          - 🐳 Docker-ready deployment
+          - 🔒 Production security features
+          
+          ## Quick Start
+          ```bash
+          # Using Docker
+          docker run -p 8080:8080 ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+          
+          # Using binary
+          ./universal-csp-report
+          ```
+          
+          ## Changes
+          ${{ steps.changelog.outputs.changelog }}
+          
+          ## Container Images
+          - `ghcr.io/${{ github.repository }}:${{ github.ref_name }}`
+          - `ghcr.io/${{ github.repository }}:latest`
+          
+          ## Checksums
+          See assets below for binary checksums.
+        draft: false
+        prerelease: false
+
+  build-binaries:
+    name: Build Release Binaries
+    runs-on: ubuntu-latest
+    needs: create-release
+    strategy:
+      matrix:
+        goos: [linux, darwin, windows]
+        goarch: [amd64, arm64]
+        exclude:
+          - goos: windows
+            goarch: arm64
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+
+    - name: Build binary
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+        CGO_ENABLED: 0
+      run: |
+        # Create version variables
+        VERSION=${{ github.ref_name }}
+        BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+        COMMIT=${{ github.sha }}
+        
+        # Set binary name
+        BINARY_NAME="universal-csp-report-${{ matrix.goos }}-${{ matrix.goarch }}"
+        if [ "${{ matrix.goos }}" = "windows" ]; then
+          BINARY_NAME="${BINARY_NAME}.exe"
+        fi
+        
+        # Build with version info
+        go build -ldflags "-s -w -X main.Version=${VERSION} -X main.BuildTime=${BUILD_TIME} -X main.Commit=${COMMIT}" -o "${BINARY_NAME}" .
+        
+        # Generate checksum
+        if command -v sha256sum >/dev/null; then
+          sha256sum "${BINARY_NAME}" > "${BINARY_NAME}.sha256"
+        else
+          shasum -a 256 "${BINARY_NAME}" > "${BINARY_NAME}.sha256"
+        fi
+        
+        # Create archive
+        if [ "${{ matrix.goos }}" = "windows" ]; then
+          zip "${BINARY_NAME%.exe}.zip" "${BINARY_NAME}" "${BINARY_NAME}.sha256" README.md
+          ASSET_PATH="${BINARY_NAME%.exe}.zip"
+        else
+          tar -czf "${BINARY_NAME}.tar.gz" "${BINARY_NAME}" "${BINARY_NAME}.sha256" README.md
+          ASSET_PATH="${BINARY_NAME}.tar.gz"
+        fi
+        
+        echo "ASSET_PATH=${ASSET_PATH}" >> $GITHUB_ENV
+        echo "BINARY_NAME=${BINARY_NAME}" >> $GITHUB_ENV
+
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ needs.create-release.outputs.upload_url }}
+        asset_path: ./${{ env.ASSET_PATH }}
+        asset_name: ${{ env.ASSET_PATH }}
+        asset_content_type: application/octet-stream
+
+  build-and-push-image:
+    name: Build and Push Release Image
+    runs-on: ubuntu-latest
+    needs: create-release
+    permissions:
+      contents: read
+      packages: write
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=semver,pattern={{major}}
+          type=raw,value=latest
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64,linux/arm64
+        build-args: |
+          VERSION=${{ github.ref_name }}
+          BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          COMMIT=${{ github.sha }}
+
+    - name: Generate SBOM
+      uses: anchore/sbom-action@v0
+      with:
+        image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
+        format: spdx-json
+        output-file: sbom.spdx.json
+
+    - name: Upload SBOM to release
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ needs.create-release.outputs.upload_url }}
+        asset_path: ./sbom.spdx.json
+        asset_name: sbom.spdx.json
+        asset_content_type: application/json
+
+  security-scan:
+    name: Security Scan Release
+    runs-on: ubuntu-latest
+    needs: build-and-push-image
+    steps:
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
+        format: 'table'
+        exit-code: '1'
+        ignore-unfixed: true
+        vuln-type: 'os,library'
+        severity: 'CRITICAL,HIGH'

@@ -1,0 +1,98 @@
+run:
+  timeout: 5m
+  issues-exit-code: 1
+  tests: true
+
+output:
+  formats:
+    - format: colored-line-number
+      path: stdout
+  print-issued-lines: true
+  print-linter-name: true
+
+linters-settings:
+  gocyclo:
+    min-complexity: 15
+  dupl:
+    threshold: 100
+  goconst:
+    min-len: 2
+    min-occurrences: 2
+  misspell:
+    locale: US
+  lll:
+    line-length: 140
+  goimports:
+    local-prefixes: universal-csp-report
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - performance
+      - style
+    disabled-checks:
+      - unnamedResult
+      - emptyStringTest
+      - httpNoBody
+  gosec:
+    config:
+      G115: "false" # Disable integer overflow warnings for intentional conversions
+  depguard:
+    rules:
+      Main:
+        deny:
+          - pkg: io/ioutil
+            desc: "replaced by io and os packages"
+
+linters:
+  enable:
+    - bodyclose
+    - errcheck
+    - exhaustive
+    - gochecknoinits
+    - goconst
+    - gocritic
+    - gocyclo
+    - gofmt
+    - goimports
+    - mnd
+    - goprintffuncname
+    - gosec
+    - gosimple
+    - govet
+    - ineffassign
+    - lll
+    - misspell
+    - nakedret
+    - noctx
+    - nolintlint
+    - rowserrcheck
+    - staticcheck
+    - stylecheck
+    - typecheck
+    - unconvert
+    - unparam
+    - unused
+    - whitespace
+  disable:
+    - depguard # Too restrictive for internal packages
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - mnd
+        - lll
+        - dupl
+        - gosec
+    - path: test_
+      linters:
+        - mnd
+        - lll
+    - linters:
+        - lll
+      source: "^//go:generate "
+    - text: "possible nil pointer dereference"
+      path: _test\.go
+
+  max-issues-per-linter: 0
+  max-same-issues: 0

@@ -1,0 +1,107 @@
+version: "2"
+run:
+  issues-exit-code: 1
+  tests: true
+output:
+  formats:
+    text:
+      path: stdout
+      print-linter-name: true
+      print-issued-lines: true
+linters:
+  enable:
+    - bodyclose
+    - exhaustive
+    - gochecknoinits
+    - goconst
+    - gocritic
+    - gocyclo
+    - goprintffuncname
+    - gosec
+    - lll
+    - misspell
+    - mnd
+    - nakedret
+    - noctx
+    - nolintlint
+    - rowserrcheck
+    - staticcheck
+    - unconvert
+    - unparam
+    - whitespace
+  disable:
+    - depguard
+  settings:
+    depguard:
+      rules:
+        Main:
+          deny:
+            - pkg: io/ioutil
+              desc: replaced by io and os packages
+    dupl:
+      threshold: 100
+    goconst:
+      min-len: 2
+      min-occurrences: 2
+    gocritic:
+      disabled-checks:
+        - unnamedResult
+        - emptyStringTest
+        - httpNoBody
+      enabled-tags:
+        - diagnostic
+        - performance
+        - style
+    gocyclo:
+      min-complexity: 15
+    gosec:
+      config:
+        G115: "false"
+    lll:
+      line-length: 140
+    misspell:
+      locale: US
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - dupl
+          - gosec
+          - lll
+          - mnd
+        path: _test\.go
+      - linters:
+          - lll
+          - mnd
+        path: test_
+      - linters:
+          - lll
+        source: '^//go:generate '
+      - path: _test\.go
+        text: possible nil pointer dereference
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - universal-csp-report
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
