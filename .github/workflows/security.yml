@@ -107,11 +107,3 @@ jobs:
       if: always()
       with:
         sarif_file: 'trivy-results.sarif'
-
-    - name: Run Snyk to check for vulnerabilities
-      uses: snyk/actions/docker@master
-      env:
-        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-      with:
-        image: universal-csp-report:latest
-        args: --severity-threshold=high

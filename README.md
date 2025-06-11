@@ -216,7 +216,6 @@ This project includes comprehensive CI/CD pipelines:
   - Daily CodeQL analysis
   - Dependency vulnerability scanning with Nancy and govulncheck
   - Container security scanning
-  - Snyk integration for additional security checks
 
 - **Release Automation** (`release.yml`):
   - Automatic releases on git tags
