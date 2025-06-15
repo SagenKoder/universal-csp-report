@@ -293,7 +293,7 @@ func TestParseCSPReports_StringNumberParsing(t *testing.T) {
 	}
 
 	parsed := reports[0].ParsedReport
-	
+
 	if parsed.LineNumber == nil || *parsed.LineNumber != 42 {
 		t.Errorf("LineNumber: expected 42, got %v", parsed.LineNumber)
 	}
@@ -476,7 +476,7 @@ func TestParseCSPReports_ErrorHandling(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			reports, err := ParseCSPReports([]byte(tt.jsonData), "test-agent", "127.0.0.1")
-			
+
 			if tt.shouldError {
 				if err == nil {
 					t.Errorf("Expected error containing '%s', but got nil", tt.errorContains)

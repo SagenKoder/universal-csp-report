@@ -49,7 +49,7 @@ type ReportToFormat struct {
 // ParseCSPReports handles both single reports and arrays of reports
 func ParseCSPReports(rawData []byte, userAgent, remoteAddr string) ([]*CSPReport, error) {
 	var reports []*CSPReport
-	
+
 	// First, try to unmarshal as an array (Chrome batch format)
 	var reportArray []interface{}
 	if err := json.Unmarshal(rawData, &reportArray); err == nil {
@@ -78,17 +78,17 @@ func ParseCSPReports(rawData []byte, userAgent, remoteAddr string) ([]*CSPReport
 		if err := json.Unmarshal(rawData, &rawReport); err != nil {
 			return nil, fmt.Errorf("failed to parse JSON: %w", err)
 		}
-		
+
 		report := parseIndividualReport(rawReport, userAgent, remoteAddr)
 		if report != nil {
 			reports = append(reports, report)
 		}
 	}
-	
+
 	if len(reports) == 0 {
 		return nil, fmt.Errorf("no valid CSP reports found")
 	}
-	
+
 	return reports, nil
 }
 
@@ -113,7 +113,7 @@ func parseIndividualReport(rawReport map[string]interface{}, userAgent, remoteAd
 		BrowserType: detectBrowserType(userAgent),
 		RawReport:   rawReport,
 	}
-	
+
 	// Check if this is a Report-To format
 	if reportType, ok := rawReport["type"].(string); ok && reportType == "csp-violation" {
 		// Handle Report-To format
@@ -126,7 +126,7 @@ func parseIndividualReport(rawReport map[string]interface{}, userAgent, remoteAd
 		report.ParsedReport = parsed
 		report.ProcessingErrors = errors
 	}
-	
+
 	report.HumanReadable = generateHumanReadable(report.ParsedReport)
 	return report
 }
@@ -134,14 +134,14 @@ func parseIndividualReport(rawReport map[string]interface{}, userAgent, remoteAd
 func extractReportToData(rawReport map[string]interface{}) (*ParsedCSPReport, []string) {
 	var errors []string
 	parsed := &ParsedCSPReport{}
-	
+
 	// Extract the body which contains the actual CSP report
 	body, ok := rawReport["body"].(map[string]interface{})
 	if !ok {
 		errors = append(errors, "Report-To format missing body field")
 		return parsed, errors
 	}
-	
+
 	// Extract fields from the body with all possible variations
 	parsed.DocumentURI = extractString(body, "documentURL", "document-url", "document-uri", "documentURI", "document_uri", "document_url")
 	parsed.Referrer = extractString(body, "referrer")
@@ -152,26 +152,26 @@ func extractReportToData(rawReport map[string]interface{}) (*ParsedCSPReport, []
 	parsed.SourceFile = extractString(body, "sourceFile", "source-file", "source_file")
 	parsed.Disposition = extractString(body, "disposition")
 	parsed.EffectiveDirective = extractString(body, "effectiveDirective", "effective-directive", "effective_directive")
-	
+
 	if statusCode := extractInt(body, "statusCode", "status-code", "status_code"); statusCode != nil {
 		parsed.StatusCode = statusCode
 	}
-	
+
 	if lineNumber := extractInt(body, "lineNumber", "line-number", "line_number"); lineNumber != nil {
 		parsed.LineNumber = lineNumber
 	}
-	
+
 	if columnNumber := extractInt(body, "columnNumber", "column-number", "column_number"); columnNumber != nil {
 		parsed.ColumnNumber = columnNumber
 	}
-	
+
 	if parsed.DocumentURI == "" {
 		errors = append(errors, "missing document-uri")
 	}
 	if parsed.ViolatedDirective == "" && parsed.EffectiveDirective == "" {
 		errors = append(errors, "missing violated-directive or effective-directive")
 	}
-	
+
 	parsed.Errors = errors
 	return parsed, errors
 }
@@ -179,13 +179,13 @@ func extractReportToData(rawReport map[string]interface{}) (*ParsedCSPReport, []
 func extractCSPData(rawReport map[string]interface{}) (*ParsedCSPReport, []string) {
 	var errors []string
 	parsed := &ParsedCSPReport{}
-	
+
 	cspReport := extractNestedReport(rawReport)
 	if cspReport == nil {
 		errors = append(errors, "no CSP report data found in request")
 		return parsed, errors
 	}
-	
+
 	// Extract all possible field variations
 	parsed.DocumentURI = extractString(cspReport, "document-uri", "documentURI", "document_uri", "document-url", "documentURL", "document_url")
 	parsed.Referrer = extractString(cspReport, "referrer")
@@ -197,31 +197,31 @@ func extractCSPData(rawReport map[string]interface{}) (*ParsedCSPReport, []strin
 	parsed.Disposition = extractString(cspReport, "disposition")
 	parsed.EffectiveDirective = extractString(cspReport, "effective-directive", "effectiveDirective", "effective_directive")
 	parsed.SHA256 = extractString(cspReport, "sha256")
-	
+
 	if statusCode := extractInt(cspReport, "status-code", "statusCode", "status_code"); statusCode != nil {
 		parsed.StatusCode = statusCode
 	}
-	
+
 	if lineNumber := extractInt(cspReport, "line-number", "lineNumber", "line_number"); lineNumber != nil {
 		parsed.LineNumber = lineNumber
 	}
-	
+
 	if columnNumber := extractInt(cspReport, "column-number", "columnNumber", "column_number"); columnNumber != nil {
 		parsed.ColumnNumber = columnNumber
 	}
-	
+
 	if parsed.DocumentURI == "" {
 		errors = append(errors, "missing document-uri")
 	}
 	if parsed.ViolatedDirective == "" && parsed.EffectiveDirective == "" {
 		errors = append(errors, "missing violated-directive or effective-directive")
 	}
-	
+
 	// If violated directive is missing but effective directive exists, use it
 	if parsed.ViolatedDirective == "" && parsed.EffectiveDirective != "" {
 		parsed.ViolatedDirective = parsed.EffectiveDirective
 	}
-	
+
 	parsed.Errors = errors
 	return parsed, errors
 }
@@ -231,17 +231,17 @@ func extractNestedReport(rawReport map[string]interface{}) map[string]interface{
 	if cspReport, ok := rawReport["csp-report"].(map[string]interface{}); ok {
 		return cspReport
 	}
-	
+
 	// Firefox variation
 	if cspReport, ok := rawReport["cspReport"].(map[string]interface{}); ok {
 		return cspReport
 	}
-	
+
 	// Report-To single format
 	if cspReport, ok := rawReport["body"].(map[string]interface{}); ok {
 		return cspReport
 	}
-	
+
 	// No wrapper - return as is
 	return rawReport
 }
@@ -284,7 +284,7 @@ func normalizeBlockedURI(uri string) string {
 	if uri == "" {
 		return "inline"
 	}
-	
+
 	// Normalize common special values
 	switch strings.ToLower(uri) {
 	case "self":
@@ -294,7 +294,7 @@ func normalizeBlockedURI(uri string) string {
 	case "unsafe-inline":
 		return "'unsafe-inline'"
 	}
-	
+
 	return uri
 }
 
@@ -318,15 +318,15 @@ func generateHumanReadable(parsed *ParsedCSPReport) string {
 	if parsed == nil {
 		return "Failed to parse CSP report"
 	}
-	
+
 	var parts []string
-	
+
 	if parsed.ViolatedDirective != "" {
 		parts = append(parts, fmt.Sprintf("Violated directive: %s", parsed.ViolatedDirective))
 	} else if parsed.EffectiveDirective != "" {
 		parts = append(parts, fmt.Sprintf("Effective directive: %s", parsed.EffectiveDirective))
 	}
-	
+
 	if parsed.BlockedURI != "" {
 		// Add context for special values
 		blockedDesc := parsed.BlockedURI
@@ -344,11 +344,11 @@ func generateHumanReadable(parsed *ParsedCSPReport) string {
 		}
 		parts = append(parts, fmt.Sprintf("Blocked URI: %s", blockedDesc))
 	}
-	
+
 	if parsed.DocumentURI != "" {
 		parts = append(parts, fmt.Sprintf("Document: %s", parsed.DocumentURI))
 	}
-	
+
 	if parsed.SourceFile != "" {
 		location := parsed.SourceFile
 		if parsed.LineNumber != nil {
@@ -359,7 +359,7 @@ func generateHumanReadable(parsed *ParsedCSPReport) string {
 		}
 		parts = append(parts, fmt.Sprintf("Source: %s", location))
 	}
-	
+
 	if parsed.ScriptSample != "" {
 		sample := parsed.ScriptSample
 		if len(sample) > 100 {
@@ -367,11 +367,11 @@ func generateHumanReadable(parsed *ParsedCSPReport) string {
 		}
 		parts = append(parts, fmt.Sprintf("Script sample: %s", sample))
 	}
-	
+
 	if len(parts) == 0 {
 		return "CSP violation (no details available)"
 	}
-	
+
 	return strings.Join(parts, " | ")
 }
 
