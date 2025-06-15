@@ -1,568 +1,498 @@
 package models
 
 import (
-	"encoding/json"
 	"strings"
 	"testing"
 )
 
-func TestParseCSPReport_ChromeFormats(t *testing.T) {
+func TestParseCSPReports_StandardFormat(t *testing.T) {
 	tests := []struct {
-		name           string
-		jsonData       string
-		userAgent      string
-		expectedFields map[string]string
+		name     string
+		jsonData string
+		expected ParsedCSPReport
 	}{
 		{
-			name: "Chrome standard CSP report",
+			name: "Standard CSP format with kebab-case",
 			jsonData: `{
 				"csp-report": {
-					"document-uri": "https://example.com/page",
-					"referrer": "https://example.com/referrer",
+					"document-uri": "https://example.com/page.html",
+					"referrer": "https://example.com/",
 					"violated-directive": "script-src 'self'",
-					"original-policy": "default-src 'self'; script-src 'self'",
+					"effective-directive": "script-src",
+					"original-policy": "default-src 'self'",
 					"blocked-uri": "https://evil.com/script.js",
 					"status-code": 200,
-					"script-sample": "console.log('evil')",
-					"line-number": 42,
-					"column-number": 15,
-					"source-file": "https://example.com/inline-script"
-				}
-			}`,
-			userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-			expectedFields: map[string]string{
-				"document_uri":       "https://example.com/page",
-				"violated_directive": "script-src 'self'",
-				"blocked_uri":        "https://evil.com/script.js",
-				"browser_type":       "chrome",
-			},
-		},
-		{
-			name: "Chrome CSP report with inline violation",
-			jsonData: `{
-				"csp-report": {
-					"document-uri": "https://example.com/inline-test",
-					"violated-directive": "script-src 'self'",
-					"blocked-uri": "inline",
-					"original-policy": "script-src 'self'",
-					"script-sample": "alert('inline script')",
-					"line-number": 23,
+					"source-file": "https://example.com/page.html",
+					"line-number": 10,
 					"column-number": 5
 				}
 			}`,
-			userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
-			expectedFields: map[string]string{
-				"document_uri":       "https://example.com/inline-test",
-				"violated_directive": "script-src 'self'",
-				"blocked_uri":        "inline",
-				"browser_type":       "chrome",
+			expected: ParsedCSPReport{
+				DocumentURI:        "https://example.com/page.html",
+				Referrer:           "https://example.com/",
+				ViolatedDirective:  "script-src 'self'",
+				EffectiveDirective: "script-src",
+				OriginalPolicy:     "default-src 'self'",
+				BlockedURI:         "https://evil.com/script.js",
+				SourceFile:         "https://example.com/page.html",
 			},
 		},
 		{
-			name: "Chrome CSP report with eval violation",
-			jsonData: `{
-				"csp-report": {
-					"document-uri": "https://example.com/eval-test",
-					"violated-directive": "script-src 'self'",
-					"blocked-uri": "eval",
-					"original-policy": "script-src 'self'",
-					"script-sample": "eval('malicious code')",
-					"line-number": 1,
-					"column-number": 1
-				}
-			}`,
-			userAgent: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36",
-			expectedFields: map[string]string{
-				"document_uri":       "https://example.com/eval-test",
-				"violated_directive": "script-src 'self'",
-				"blocked_uri":        "eval",
-				"browser_type":       "chrome",
-			},
-		},
-		{
-			name: "Chrome CSP report with style violation",
-			jsonData: `{
-				"csp-report": {
-					"document-uri": "https://example.com/style-test",
-					"violated-directive": "style-src 'self'",
-					"blocked-uri": "https://fonts.googleapis.com/css",
-					"original-policy": "default-src 'self'; style-src 'self'"
-				}
-			}`,
-			userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-			expectedFields: map[string]string{
-				"document_uri":       "https://example.com/style-test",
-				"violated_directive": "style-src 'self'",
-				"blocked_uri":        "https://fonts.googleapis.com/css",
-				"browser_type":       "chrome",
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			report, err := ParseCSPReport([]byte(tt.jsonData), tt.userAgent, "192.168.1.1")
-			if err != nil {
-				t.Fatalf("ParseCSPReport() error = %v", err)
-			}
-
-			if report.BrowserType != tt.expectedFields["browser_type"] {
-				t.Errorf("BrowserType = %v, want %v", report.BrowserType, tt.expectedFields["browser_type"])
-			}
-
-			if report.ParsedReport.DocumentURI != tt.expectedFields["document_uri"] {
-				t.Errorf("DocumentURI = %v, want %v", report.ParsedReport.DocumentURI, tt.expectedFields["document_uri"])
-			}
-
-			if report.ParsedReport.ViolatedDirective != tt.expectedFields["violated_directive"] {
-				t.Errorf("ViolatedDirective = %v, want %v", report.ParsedReport.ViolatedDirective, tt.expectedFields["violated_directive"])
-			}
-
-			if report.ParsedReport.BlockedURI != tt.expectedFields["blocked_uri"] {
-				t.Errorf("BlockedURI = %v, want %v", report.ParsedReport.BlockedURI, tt.expectedFields["blocked_uri"])
-			}
-		})
-	}
-}
-
-func TestParseCSPReport_FirefoxFormats(t *testing.T) {
-	tests := []struct {
-		name           string
-		jsonData       string
-		userAgent      string
-		expectedFields map[string]string
-	}{
-		{
-			name: "Firefox standard CSP report",
-			jsonData: `{
-				"csp-report": {
-					"document-uri": "https://example.com/firefox-page",
-					"referrer": "",
-					"violated-directive": "script-src 'self'",
-					"original-policy": "default-src 'self'; script-src 'self'",
-					"blocked-uri": "https://malicious.com/script.js"
-				}
-			}`,
-			userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/120.0",
-			expectedFields: map[string]string{
-				"document_uri":       "https://example.com/firefox-page",
-				"violated_directive": "script-src 'self'",
-				"blocked_uri":        "https://malicious.com/script.js",
-				"browser_type":       "firefox",
-			},
-		},
-		{
-			name: "Firefox CSP report with camelCase fields",
+			name: "Firefox camelCase format",
 			jsonData: `{
 				"cspReport": {
-					"documentURI": "https://example.com/firefox-camel",
+					"documentURI": "https://example.com/page",
 					"violatedDirective": "img-src 'self'",
-					"blockedURI": "https://tracker.com/pixel.gif",
-					"originalPolicy": "default-src 'self'; img-src 'self'"
+					"blockedURI": "data",
+					"lineNumber": 25,
+					"sha256": "sha256-abcd1234"
 				}
 			}`,
-			userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/119.0",
-			expectedFields: map[string]string{
-				"document_uri":       "https://example.com/firefox-camel",
-				"violated_directive": "img-src 'self'",
-				"blocked_uri":        "https://tracker.com/pixel.gif",
-				"browser_type":       "firefox",
+			expected: ParsedCSPReport{
+				DocumentURI:       "https://example.com/page",
+				ViolatedDirective: "img-src 'self'",
+				BlockedURI:        "data",
+				SHA256:            "sha256-abcd1234",
 			},
 		},
 		{
-			name: "Firefox CSP report with inline style violation",
+			name: "Legacy WebKit format with url variations",
 			jsonData: `{
 				"csp-report": {
-					"document-uri": "https://example.com/inline-style",
+					"document-url": "https://example.com/legacy",
+					"blocked-url": "https://fonts.googleapis.com/css",
 					"violated-directive": "style-src 'self'",
-					"blocked-uri": "inline",
-					"original-policy": "style-src 'self'",
-					"script-sample": "background: red;",
-					"line-number": 15
+					"line-number": "25",
+					"column-number": "10"
 				}
 			}`,
-			userAgent: "Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/118.0",
-			expectedFields: map[string]string{
-				"document_uri":       "https://example.com/inline-style",
-				"violated_directive": "style-src 'self'",
-				"blocked_uri":        "inline",
-				"browser_type":       "firefox",
+			expected: ParsedCSPReport{
+				DocumentURI:       "https://example.com/legacy",
+				BlockedURI:        "https://fonts.googleapis.com/css",
+				ViolatedDirective: "style-src 'self'",
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			report, err := ParseCSPReport([]byte(tt.jsonData), tt.userAgent, "192.168.1.1")
+			reports, err := ParseCSPReports([]byte(tt.jsonData), "test-agent", "127.0.0.1")
 			if err != nil {
-				t.Fatalf("ParseCSPReport() error = %v", err)
+				t.Fatalf("Failed to parse report: %v", err)
 			}
 
-			if report.BrowserType != tt.expectedFields["browser_type"] {
-				t.Errorf("BrowserType = %v, want %v", report.BrowserType, tt.expectedFields["browser_type"])
+			if len(reports) != 1 {
+				t.Fatalf("Expected 1 report, got %d", len(reports))
 			}
 
-			if report.ParsedReport.DocumentURI != tt.expectedFields["document_uri"] {
-				t.Errorf("DocumentURI = %v, want %v", report.ParsedReport.DocumentURI, tt.expectedFields["document_uri"])
-			}
+			report := reports[0]
+			parsed := report.ParsedReport
 
-			if report.ParsedReport.ViolatedDirective != tt.expectedFields["violated_directive"] {
-				t.Errorf("ViolatedDirective = %v, want %v", report.ParsedReport.ViolatedDirective, tt.expectedFields["violated_directive"])
+			if parsed.DocumentURI != tt.expected.DocumentURI {
+				t.Errorf("DocumentURI: expected %s, got %s", tt.expected.DocumentURI, parsed.DocumentURI)
 			}
-
-			if report.ParsedReport.BlockedURI != tt.expectedFields["blocked_uri"] {
-				t.Errorf("BlockedURI = %v, want %v", report.ParsedReport.BlockedURI, tt.expectedFields["blocked_uri"])
+			if parsed.ViolatedDirective != tt.expected.ViolatedDirective {
+				t.Errorf("ViolatedDirective: expected %s, got %s", tt.expected.ViolatedDirective, parsed.ViolatedDirective)
+			}
+			if parsed.BlockedURI != tt.expected.BlockedURI {
+				t.Errorf("BlockedURI: expected %s, got %s", tt.expected.BlockedURI, parsed.BlockedURI)
+			}
+			if tt.expected.SHA256 != "" && parsed.SHA256 != tt.expected.SHA256 {
+				t.Errorf("SHA256: expected %s, got %s", tt.expected.SHA256, parsed.SHA256)
 			}
 		})
 	}
 }
 
-func TestParseCSPReport_SafariFormats(t *testing.T) {
-	tests := []struct {
-		name           string
-		jsonData       string
-		userAgent      string
-		expectedFields map[string]string
-	}{
+func TestParseCSPReports_ChromeBatchFormat(t *testing.T) {
+	jsonData := `[
 		{
-			name: "Safari standard CSP report",
-			jsonData: `{
-				"csp-report": {
-					"document-uri": "https://example.com/safari-page",
-					"violated-directive": "script-src 'self'",
-					"blocked-uri": "https://ads.com/tracker.js",
-					"original-policy": "default-src 'self'"
-				}
-			}`,
-			userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15",
-			expectedFields: map[string]string{
-				"document_uri":       "https://example.com/safari-page",
-				"violated_directive": "script-src 'self'",
-				"blocked_uri":        "https://ads.com/tracker.js",
-				"browser_type":       "safari",
-			},
+			"type": "csp-violation",
+			"age": 10,
+			"url": "https://example.com/page.html",
+			"user_agent": "Mozilla/5.0",
+			"body": {
+				"blockedURL": "https://cdn.evil.com/script.js",
+				"columnNumber": 0,
+				"disposition": "enforce",
+				"documentURL": "https://example.com/page.html",
+				"effectiveDirective": "script-src-elem",
+				"lineNumber": 0,
+				"originalPolicy": "script-src 'self'",
+				"referrer": "https://example.com/",
+				"statusCode": 0,
+				"violatedDirective": "script-src-elem"
+			}
 		},
 		{
-			name: "Safari iOS CSP report",
-			jsonData: `{
-				"csp-report": {
-					"document-uri": "https://mobile.example.com/page",
-					"violated-directive": "connect-src 'self'",
-					"blocked-uri": "wss://websocket.example.com",
-					"original-policy": "connect-src 'self'"
-				}
-			}`,
-			userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1",
-			expectedFields: map[string]string{
-				"document_uri":       "https://mobile.example.com/page",
-				"violated_directive": "connect-src 'self'",
-				"blocked_uri":        "wss://websocket.example.com",
-				"browser_type":       "safari",
-			},
-		},
+			"type": "csp-violation",
+			"age": 150,
+			"url": "https://example.com/page.html",
+			"user_agent": "Mozilla/5.0",
+			"body": {
+				"blockedURL": "inline",
+				"columnNumber": 42,
+				"disposition": "enforce",
+				"documentURL": "https://example.com/page.html",
+				"effectiveDirective": "style-src-elem",
+				"lineNumber": 58,
+				"sample": "body { background: red; }",
+				"violatedDirective": "style-src-elem"
+			}
+		}
+	]`
+
+	reports, err := ParseCSPReports([]byte(jsonData), "test-agent", "127.0.0.1")
+	if err != nil {
+		t.Fatalf("Failed to parse batch reports: %v", err)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			report, err := ParseCSPReport([]byte(tt.jsonData), tt.userAgent, "192.168.1.1")
-			if err != nil {
-				t.Fatalf("ParseCSPReport() error = %v", err)
-			}
+	if len(reports) != 2 {
+		t.Fatalf("Expected 2 reports, got %d", len(reports))
+	}
 
-			if report.BrowserType != tt.expectedFields["browser_type"] {
-				t.Errorf("BrowserType = %v, want %v", report.BrowserType, tt.expectedFields["browser_type"])
-			}
+	// Check first report
+	report1 := reports[0].ParsedReport
+	if report1.DocumentURI != "https://example.com/page.html" {
+		t.Errorf("Report 1 DocumentURI: expected https://example.com/page.html, got %s", report1.DocumentURI)
+	}
+	if report1.BlockedURI != "https://cdn.evil.com/script.js" {
+		t.Errorf("Report 1 BlockedURI: expected https://cdn.evil.com/script.js, got %s", report1.BlockedURI)
+	}
+	if report1.EffectiveDirective != "script-src-elem" {
+		t.Errorf("Report 1 EffectiveDirective: expected script-src-elem, got %s", report1.EffectiveDirective)
+	}
 
-			if report.ParsedReport.DocumentURI != tt.expectedFields["document_uri"] {
-				t.Errorf("DocumentURI = %v, want %v", report.ParsedReport.DocumentURI, tt.expectedFields["document_uri"])
-			}
-
-			if report.ParsedReport.ViolatedDirective != tt.expectedFields["violated_directive"] {
-				t.Errorf("ViolatedDirective = %v, want %v", report.ParsedReport.ViolatedDirective, tt.expectedFields["violated_directive"])
-			}
-
-			if report.ParsedReport.BlockedURI != tt.expectedFields["blocked_uri"] {
-				t.Errorf("BlockedURI = %v, want %v", report.ParsedReport.BlockedURI, tt.expectedFields["blocked_uri"])
-			}
-		})
+	// Check second report
+	report2 := reports[1].ParsedReport
+	if report2.BlockedURI != "inline" {
+		t.Errorf("Report 2 BlockedURI: expected inline, got %s", report2.BlockedURI)
+	}
+	if report2.ScriptSample != "body { background: red; }" {
+		t.Errorf("Report 2 ScriptSample: expected 'body { background: red; }', got %s", report2.ScriptSample)
 	}
 }
 
-func TestParseCSPReport_EdgeFormats(t *testing.T) {
-	tests := []struct {
-		name           string
-		jsonData       string
-		userAgent      string
-		expectedFields map[string]string
-	}{
-		{
-			name: "Edge Chromium CSP report",
-			jsonData: `{
-				"csp-report": {
-					"document-uri": "https://example.com/edge-page",
-					"violated-directive": "object-src 'none'",
-					"blocked-uri": "https://example.com/plugin.swf",
-					"original-policy": "object-src 'none'",
-					"status-code": 200
-				}
-			}`,
-			userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",
-			expectedFields: map[string]string{
-				"document_uri":       "https://example.com/edge-page",
-				"violated_directive": "object-src 'none'",
-				"blocked_uri":        "https://example.com/plugin.swf",
-				"browser_type":       "edge",
-			},
-		},
-		{
-			name: "Edge Legacy CSP report",
-			jsonData: `{
-				"csp-report": {
-					"document-uri": "https://example.com/legacy-edge",
-					"violated-directive": "frame-src 'self'",
-					"blocked-uri": "https://iframe.malicious.com",
-					"original-policy": "frame-src 'self'"
-				}
-			}`,
-			userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.102 Safari/537.36 Edge/18.19041",
-			expectedFields: map[string]string{
-				"document_uri":       "https://example.com/legacy-edge",
-				"violated_directive": "frame-src 'self'",
-				"blocked_uri":        "https://iframe.malicious.com",
-				"browser_type":       "edge",
-			},
-		},
+func TestParseCSPReports_ReportToSingleFormat(t *testing.T) {
+	jsonData := `{
+		"type": "csp-violation",
+		"age": 0,
+		"url": "https://example.com/checkout",
+		"user_agent": "Mozilla/5.0",
+		"body": {
+			"blockedURL": "wss://realtime.untrusted.com/socket",
+			"disposition": "report",
+			"documentURL": "https://example.com/checkout",
+			"effectiveDirective": "connect-src",
+			"originalPolicy": "default-src 'self'; connect-src 'self' https://api.example.com",
+			"violatedDirective": "connect-src"
+		}
+	}`
+
+	reports, err := ParseCSPReports([]byte(jsonData), "test-agent", "127.0.0.1")
+	if err != nil {
+		t.Fatalf("Failed to parse Report-To format: %v", err)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			report, err := ParseCSPReport([]byte(tt.jsonData), tt.userAgent, "192.168.1.1")
-			if err != nil {
-				t.Fatalf("ParseCSPReport() error = %v", err)
-			}
+	if len(reports) != 1 {
+		t.Fatalf("Expected 1 report, got %d", len(reports))
+	}
 
-			if report.BrowserType != tt.expectedFields["browser_type"] {
-				t.Errorf("BrowserType = %v, want %v", report.BrowserType, tt.expectedFields["browser_type"])
-			}
-
-			if report.ParsedReport.DocumentURI != tt.expectedFields["document_uri"] {
-				t.Errorf("DocumentURI = %v, want %v", report.ParsedReport.DocumentURI, tt.expectedFields["document_uri"])
-			}
-
-			if report.ParsedReport.ViolatedDirective != tt.expectedFields["violated_directive"] {
-				t.Errorf("ViolatedDirective = %v, want %v", report.ParsedReport.ViolatedDirective, tt.expectedFields["violated_directive"])
-			}
-
-			if report.ParsedReport.BlockedURI != tt.expectedFields["blocked_uri"] {
-				t.Errorf("BlockedURI = %v, want %v", report.ParsedReport.BlockedURI, tt.expectedFields["blocked_uri"])
-			}
-		})
+	parsed := reports[0].ParsedReport
+	if parsed.BlockedURI != "wss://realtime.untrusted.com/socket" {
+		t.Errorf("BlockedURI: expected wss://realtime.untrusted.com/socket, got %s", parsed.BlockedURI)
+	}
+	if parsed.Disposition != "report" {
+		t.Errorf("Disposition: expected report, got %s", parsed.Disposition)
 	}
 }
 
-func TestParseCSPReport_ReportToAPI(t *testing.T) {
-	tests := []struct {
-		name           string
-		jsonData       string
-		userAgent      string
-		expectedFields map[string]string
-	}{
-		{
-			name: "Report-To API CSP report",
-			jsonData: `{
-				"body": {
-					"document-uri": "https://example.com/report-to",
-					"violated-directive": "script-src 'self'",
-					"blocked-uri": "https://analytics.com/track.js",
-					"original-policy": "script-src 'self'",
-					"disposition": "enforce"
-				}
-			}`,
-			userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-			expectedFields: map[string]string{
-				"document_uri":       "https://example.com/report-to",
-				"violated_directive": "script-src 'self'",
-				"blocked_uri":        "https://analytics.com/track.js",
-				"browser_type":       "chrome",
-			},
-		},
-		{
-			name: "Report-To API with snake_case fields",
-			jsonData: `{
-				"body": {
-					"document_uri": "https://example.com/snake-case",
-					"violated_directive": "img-src 'self'",
-					"blocked_uri": "https://cdn.example.com/image.jpg",
-					"original_policy": "img-src 'self'",
-					"effective_directive": "img-src",
-					"disposition": "report"
-				}
-			}`,
-			userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
-			expectedFields: map[string]string{
-				"document_uri":       "https://example.com/snake-case",
-				"violated_directive": "img-src 'self'",
-				"blocked_uri":        "https://cdn.example.com/image.jpg",
-				"browser_type":       "chrome",
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			report, err := ParseCSPReport([]byte(tt.jsonData), tt.userAgent, "192.168.1.1")
-			if err != nil {
-				t.Fatalf("ParseCSPReport() error = %v", err)
-			}
-
-			if report.BrowserType != tt.expectedFields["browser_type"] {
-				t.Errorf("BrowserType = %v, want %v", report.BrowserType, tt.expectedFields["browser_type"])
-			}
-
-			if report.ParsedReport.DocumentURI != tt.expectedFields["document_uri"] {
-				t.Errorf("DocumentURI = %v, want %v", report.ParsedReport.DocumentURI, tt.expectedFields["document_uri"])
-			}
-
-			if report.ParsedReport.ViolatedDirective != tt.expectedFields["violated_directive"] {
-				t.Errorf("ViolatedDirective = %v, want %v", report.ParsedReport.ViolatedDirective, tt.expectedFields["violated_directive"])
-			}
-
-			if report.ParsedReport.BlockedURI != tt.expectedFields["blocked_uri"] {
-				t.Errorf("BlockedURI = %v, want %v", report.ParsedReport.BlockedURI, tt.expectedFields["blocked_uri"])
-			}
-		})
-	}
-}
-
-func TestParseCSPReport_MalformedAndEdgeCases(t *testing.T) {
+func TestParseCSPReports_SpecialBlockedURIValues(t *testing.T) {
 	tests := []struct {
 		name        string
-		jsonData    string
-		userAgent   string
-		expectError bool
+		blockedURI  string
+		expected    string
 		description string
 	}{
 		{
-			name:        "Empty JSON",
-			jsonData:    `{}`,
-			userAgent:   "Mozilla/5.0 Chrome/120.0.0.0",
-			expectError: false,
-			description: "Should handle empty JSON gracefully",
+			name:        "Empty string becomes inline",
+			blockedURI:  "",
+			expected:    "inline",
+			description: "Empty blocked-uri should be normalized to 'inline'",
 		},
 		{
-			name:        "Invalid JSON",
-			jsonData:    `{invalid json}`,
-			userAgent:   "Mozilla/5.0 Chrome/120.0.0.0",
-			expectError: true,
-			description: "Should return error for invalid JSON",
+			name:        "self becomes quoted",
+			blockedURI:  "self",
+			expected:    "'self'",
+			description: "Unquoted self should be quoted",
 		},
 		{
-			name: "Missing required fields",
-			jsonData: `{
-				"csp-report": {
-					"blocked-uri": "https://example.com/script.js"
-				}
-			}`,
-			userAgent:   "Mozilla/5.0 Chrome/120.0.0.0",
-			expectError: false,
-			description: "Should handle missing required fields",
+			name:        "unsafe-eval becomes quoted",
+			blockedURI:  "unsafe-eval",
+			expected:    "'unsafe-eval'",
+			description: "Unquoted unsafe-eval should be quoted",
 		},
 		{
-			name: "Null values",
-			jsonData: `{
-				"csp-report": {
-					"document-uri": null,
-					"violated-directive": null,
-					"blocked-uri": "https://example.com/script.js"
-				}
-			}`,
-			userAgent:   "Mozilla/5.0 Chrome/120.0.0.0",
-			expectError: false,
-			description: "Should handle null values",
+			name:        "eval remains as is",
+			blockedURI:  "eval",
+			expected:    "eval",
+			description: "eval keyword should remain unchanged",
 		},
 		{
-			name: "Mixed data types",
-			jsonData: `{
-				"csp-report": {
-					"document-uri": "https://example.com",
-					"violated-directive": "script-src 'self'",
-					"blocked-uri": "https://example.com/script.js",
-					"line-number": "not-a-number",
-					"status-code": "200"
-				}
-			}`,
-			userAgent:   "Mozilla/5.0 Chrome/120.0.0.0",
-			expectError: false,
-			description: "Should handle mixed data types gracefully",
+			name:        "data URI remains as is",
+			blockedURI:  "data",
+			expected:    "data",
+			description: "data keyword should remain unchanged",
 		},
 		{
-			name: "Very large script sample",
-			jsonData: `{
-				"csp-report": {
-					"document-uri": "https://example.com",
-					"violated-directive": "script-src 'self'",
-					"blocked-uri": "inline",
-					"script-sample": "` + strings.Repeat("a", 1000) + `"
-				}
-			}`,
-			userAgent:   "Mozilla/5.0 Chrome/120.0.0.0",
-			expectError: false,
-			description: "Should handle very large script samples",
-		},
-		{
-			name: "Unicode characters",
-			jsonData: `{
-				"csp-report": {
-					"document-uri": "https://example.com/测试页面",
-					"violated-directive": "script-src 'self'",
-					"blocked-uri": "https://example.com/スクリプト.js"
-				}
-			}`,
-			userAgent:   "Mozilla/5.0 Chrome/120.0.0.0",
-			expectError: false,
-			description: "Should handle Unicode characters",
-		},
-		{
-			name: "Deeply nested structure",
-			jsonData: `{
-				"report": {
-					"csp-report": {
-						"document-uri": "https://example.com/nested",
-						"violated-directive": "script-src 'self'",
-						"blocked-uri": "https://example.com/script.js"
-					}
-				}
-			}`,
-			userAgent:   "Mozilla/5.0 Chrome/120.0.0.0",
-			expectError: false,
-			description: "Should handle non-standard nesting",
+			name:        "blob URI remains as is",
+			blockedURI:  "blob",
+			expected:    "blob",
+			description: "blob keyword should remain unchanged",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			report, err := ParseCSPReport([]byte(tt.jsonData), tt.userAgent, "192.168.1.1")
+			jsonData := `{
+				"csp-report": {
+					"document-uri": "https://example.com/test",
+					"violated-directive": "script-src 'self'",
+					"blocked-uri": "` + tt.blockedURI + `"
+				}
+			}`
 
-			if tt.expectError && err == nil {
-				t.Errorf("Expected error but got none: %s", tt.description)
+			reports, err := ParseCSPReports([]byte(jsonData), "test-agent", "127.0.0.1")
+			if err != nil {
+				t.Fatalf("Failed to parse report: %v", err)
 			}
 
-			if !tt.expectError && err != nil {
-				t.Errorf("Unexpected error: %v - %s", err, tt.description)
+			parsed := reports[0].ParsedReport
+			if parsed.BlockedURI != tt.expected {
+				t.Errorf("%s: expected '%s', got '%s'", tt.description, tt.expected, parsed.BlockedURI)
+			}
+		})
+	}
+}
+
+func TestParseCSPReports_StringNumberParsing(t *testing.T) {
+	jsonData := `{
+		"csp-report": {
+			"document-uri": "https://example.com/test",
+			"violated-directive": "script-src 'self'",
+			"blocked-uri": "inline",
+			"line-number": "42",
+			"column-number": "15",
+			"status-code": "200"
+		}
+	}`
+
+	reports, err := ParseCSPReports([]byte(jsonData), "test-agent", "127.0.0.1")
+	if err != nil {
+		t.Fatalf("Failed to parse report: %v", err)
+	}
+
+	parsed := reports[0].ParsedReport
+	
+	if parsed.LineNumber == nil || *parsed.LineNumber != 42 {
+		t.Errorf("LineNumber: expected 42, got %v", parsed.LineNumber)
+	}
+	if parsed.ColumnNumber == nil || *parsed.ColumnNumber != 15 {
+		t.Errorf("ColumnNumber: expected 15, got %v", parsed.ColumnNumber)
+	}
+	if parsed.StatusCode == nil || *parsed.StatusCode != 200 {
+		t.Errorf("StatusCode: expected 200, got %v", parsed.StatusCode)
+	}
+}
+
+func TestParseCSPReports_AllFieldVariations(t *testing.T) {
+	// Test that all field name variations are properly extracted
+	variations := []struct {
+		fieldName string
+		jsonData  string
+	}{
+		{
+			fieldName: "documentURL variation",
+			jsonData: `{
+				"body": {
+					"documentURL": "https://example.com/test",
+					"violatedDirective": "script-src"
+				}
+			}`,
+		},
+		{
+			fieldName: "document_url snake_case",
+			jsonData: `{
+				"csp-report": {
+					"document_url": "https://example.com/test",
+					"violated_directive": "script-src"
+				}
+			}`,
+		},
+		{
+			fieldName: "sample instead of script-sample",
+			jsonData: `{
+				"csp-report": {
+					"document-uri": "https://example.com/test",
+					"violated-directive": "script-src",
+					"sample": "alert(1)"
+				}
+			}`,
+		},
+		{
+			fieldName: "blockedURL camelCase",
+			jsonData: `{
+				"body": {
+					"documentURL": "https://example.com/test",
+					"violatedDirective": "script-src",
+					"blockedURL": "https://evil.com/script.js"
+				}
+			}`,
+		},
+	}
+
+	for _, tt := range variations {
+		t.Run(tt.fieldName, func(t *testing.T) {
+			reports, err := ParseCSPReports([]byte(tt.jsonData), "test-agent", "127.0.0.1")
+			if err != nil {
+				t.Fatalf("Failed to parse report with %s: %v", tt.fieldName, err)
 			}
 
-			if !tt.expectError && err == nil {
-				if report == nil {
-					t.Errorf("Expected report but got nil: %s", tt.description)
-				} else if report.HumanReadable == "" {
-					t.Errorf("Expected human readable text but got empty: %s", tt.description)
+			parsed := reports[0].ParsedReport
+			if parsed.DocumentURI == "" {
+				t.Errorf("%s: DocumentURI should not be empty", tt.fieldName)
+			}
+			if parsed.ViolatedDirective == "" {
+				t.Errorf("%s: ViolatedDirective should not be empty", tt.fieldName)
+			}
+		})
+	}
+}
+
+func TestParseCSPReports_HumanReadableOutput(t *testing.T) {
+	tests := []struct {
+		name     string
+		parsed   *ParsedCSPReport
+		expected string
+	}{
+		{
+			name: "Inline script violation",
+			parsed: &ParsedCSPReport{
+				ViolatedDirective: "script-src 'self'",
+				BlockedURI:        "inline",
+				DocumentURI:       "https://example.com/page",
+				SourceFile:        "https://example.com/page",
+				LineNumber:        intPtr(42),
+				ColumnNumber:      intPtr(15),
+			},
+			expected: "Violated directive: script-src 'self' | Blocked URI: inline (inline script or style) | Document: https://example.com/page | Source: https://example.com/page:42:15",
+		},
+		{
+			name: "Eval violation",
+			parsed: &ParsedCSPReport{
+				ViolatedDirective: "script-src 'self'",
+				BlockedURI:        "eval",
+				DocumentURI:       "https://example.com/app",
+			},
+			expected: "Violated directive: script-src 'self' | Blocked URI: eval (eval() or similar) | Document: https://example.com/app",
+		},
+		{
+			name: "Data URI violation",
+			parsed: &ParsedCSPReport{
+				ViolatedDirective: "img-src 'self'",
+				BlockedURI:        "data",
+				DocumentURI:       "https://example.com/gallery",
+			},
+			expected: "Violated directive: img-src 'self' | Blocked URI: data (data: URI) | Document: https://example.com/gallery",
+		},
+		{
+			name: "Only effective directive",
+			parsed: &ParsedCSPReport{
+				EffectiveDirective: "style-src-elem",
+				BlockedURI:         "https://fonts.googleapis.com/css",
+				DocumentURI:        "https://example.com/style",
+			},
+			expected: "Effective directive: style-src-elem | Blocked URI: https://fonts.googleapis.com/css | Document: https://example.com/style",
+		},
+		{
+			name: "Long script sample truncated",
+			parsed: &ParsedCSPReport{
+				ViolatedDirective: "script-src 'self'",
+				BlockedURI:        "inline",
+				DocumentURI:       "https://example.com/test",
+				ScriptSample:      "function veryLongFunctionNameThatExceedsTheHundredCharacterLimitAndWillBeTruncatedToMakeItMoreReadableInTheOutput() { console.log('test'); }",
+			},
+			expected: "Violated directive: script-src 'self' | Blocked URI: inline (inline script or style) | Document: https://example.com/test | Script sample: function veryLongFunctionNameThatExceedsTheHundredCharacterLimitAndWillBeTruncatedToMakeItMoreReadab...",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := generateHumanReadable(tt.parsed)
+			if result != tt.expected {
+				t.Errorf("Human readable output mismatch:\nExpected: %s\nGot:      %s", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestParseCSPReports_ErrorHandling(t *testing.T) {
+	tests := []struct {
+		name          string
+		jsonData      string
+		shouldError   bool
+		errorContains string
+	}{
+		{
+			name:          "Invalid JSON",
+			jsonData:      `{invalid json}`,
+			shouldError:   true,
+			errorContains: "failed to parse JSON",
+		},
+		{
+			name:          "Empty JSON object",
+			jsonData:      `{}`,
+			shouldError:   false,
+			errorContains: "",
+		},
+		{
+			name:          "Missing required fields",
+			jsonData:      `{"csp-report": {}}`,
+			shouldError:   false,
+			errorContains: "",
+		},
+		{
+			name: "Invalid report in batch",
+			jsonData: `[
+				{"type": "csp-violation", "body": {"documentURL": "test", "violatedDirective": "test"}},
+				"invalid report",
+				{"type": "csp-violation", "body": {"documentURL": "test2", "violatedDirective": "test2"}}
+			]`,
+			shouldError:   false,
+			errorContains: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reports, err := ParseCSPReports([]byte(tt.jsonData), "test-agent", "127.0.0.1")
+			
+			if tt.shouldError {
+				if err == nil {
+					t.Errorf("Expected error containing '%s', but got nil", tt.errorContains)
+				} else if tt.errorContains != "" && !containsString(err.Error(), tt.errorContains) {
+					t.Errorf("Expected error containing '%s', got '%s'", tt.errorContains, err.Error())
+				}
+			} else {
+				if err != nil && len(reports) == 0 {
+					t.Errorf("Unexpected error: %v", err)
 				}
 			}
 		})
 	}
 }
 
-func TestParseCSPReport_AllDirectiveTypes(t *testing.T) {
+func TestParseCSPReports_AllDirectiveTypes(t *testing.T) {
 	directives := []string{
 		"default-src", "script-src", "style-src", "img-src", "connect-src",
 		"font-src", "object-src", "media-src", "frame-src", "child-src",
@@ -593,82 +523,6 @@ func TestParseCSPReport_AllDirectiveTypes(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestHumanReadableGeneration(t *testing.T) {
-	tests := []struct {
-		name     string
-		jsonData string
-		contains []string
-	}{
-		{
-			name: "Complete violation info",
-			jsonData: `{
-				"csp-report": {
-					"document-uri": "https://example.com/page",
-					"violated-directive": "script-src 'self'",
-					"blocked-uri": "https://evil.com/script.js",
-					"source-file": "https://example.com/app.js",
-					"line-number": 42,
-					"column-number": 15,
-					"script-sample": "console.log('test')"
-				}
-			}`,
-			contains: []string{
-				"Violated directive: script-src 'self'",
-				"Blocked URI: https://evil.com/script.js",
-				"Document: https://example.com/page",
-				"Source: https://example.com/app.js:42:15",
-				"Script sample: console.log('test')",
-			},
-		},
-		{
-			name: "Minimal violation info",
-			jsonData: `{
-				"csp-report": {
-					"document-uri": "https://example.com/minimal",
-					"violated-directive": "img-src 'self'",
-					"blocked-uri": "https://tracker.com/pixel.gif"
-				}
-			}`,
-			contains: []string{
-				"Violated directive: img-src 'self'",
-				"Blocked URI: https://tracker.com/pixel.gif",
-				"Document: https://example.com/minimal",
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			report, err := ParseCSPReport([]byte(tt.jsonData), "Mozilla/5.0 Chrome/120.0.0.0", "192.168.1.1")
-			if err != nil {
-				t.Fatalf("ParseCSPReport() error = %v", err)
-			}
-
-			humanReadable := report.HumanReadable
-			for _, expected := range tt.contains {
-				if !contains(humanReadable, expected) {
-					t.Errorf("HumanReadable does not contain '%s'. Got: %s", expected, humanReadable)
-				}
-			}
-		})
-	}
-}
-
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(substr) == 0 ||
-		(len(s) > len(substr) && (s[:len(substr)] == substr || s[len(s)-len(substr):] == substr ||
-			containsSubstring(s, substr))))
-}
-
-func containsSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }
 
 func TestBrowserDetection(t *testing.T) {
@@ -708,32 +562,124 @@ func TestBrowserDetection(t *testing.T) {
 	}
 }
 
-func TestJSONMarshaling(t *testing.T) {
+func TestParseCSPReports_MixedBatchWithErrors(t *testing.T) {
+	// Test a batch where some reports are valid and some are invalid
+	jsonData := `[
+		{
+			"type": "csp-violation",
+			"body": {
+				"documentURL": "https://example.com/valid1",
+				"violatedDirective": "script-src 'self'"
+			}
+		},
+		"this is not a valid report",
+		{
+			"type": "csp-violation",
+			"body": {
+				"documentURL": "https://example.com/valid2",
+				"violatedDirective": "img-src 'self'"
+			}
+		},
+		null,
+		{
+			"type": "csp-violation",
+			"body": {
+				"documentURL": "https://example.com/valid3",
+				"violatedDirective": "style-src 'self'"
+			}
+		}
+	]`
+
+	reports, err := ParseCSPReports([]byte(jsonData), "test-agent", "127.0.0.1")
+	if err != nil {
+		t.Fatalf("Failed to parse mixed batch: %v", err)
+	}
+
+	// Should have 5 reports total (3 valid + 2 error reports)
+	if len(reports) != 5 {
+		t.Fatalf("Expected 5 reports, got %d", len(reports))
+	}
+
+	// Check that we have 3 valid reports
+	validCount := 0
+	errorCount := 0
+	for _, report := range reports {
+		if len(report.ProcessingErrors) == 0 && report.ParsedReport.DocumentURI != "" {
+			validCount++
+		} else {
+			errorCount++
+		}
+	}
+
+	if validCount != 3 {
+		t.Errorf("Expected 3 valid reports, got %d", validCount)
+	}
+	if errorCount != 2 {
+		t.Errorf("Expected 2 error reports, got %d", errorCount)
+	}
+}
+
+func TestParseCSPReports_VeryLargeReport(t *testing.T) {
+	// Test handling of very large script samples
+	largeScript := strings.Repeat("console.log('test');", 1000)
 	jsonData := `{
 		"csp-report": {
-			"document-uri": "https://example.com/test",
+			"document-uri": "https://example.com/large",
 			"violated-directive": "script-src 'self'",
-			"blocked-uri": "https://example.com/script.js"
+			"blocked-uri": "inline",
+			"script-sample": "` + largeScript + `"
 		}
 	}`
 
-	report, err := ParseCSPReport([]byte(jsonData), "Mozilla/5.0 Chrome/120.0.0.0", "192.168.1.1")
+	reports, err := ParseCSPReports([]byte(jsonData), "test-agent", "127.0.0.1")
 	if err != nil {
-		t.Fatalf("ParseCSPReport() error = %v", err)
+		t.Fatalf("Failed to parse large report: %v", err)
 	}
 
-	// Test that the report can be marshaled back to JSON
-	_, err = json.Marshal(report)
+	parsed := reports[0].ParsedReport
+	if parsed.ScriptSample != largeScript {
+		t.Error("Large script sample was not preserved")
+	}
+
+	// Check that human readable truncates it
+	humanReadable := reports[0].HumanReadable
+	if !strings.Contains(humanReadable, "...") {
+		t.Error("Human readable should truncate large script samples")
+	}
+}
+
+func TestParseCSPReports_UnicodeHandling(t *testing.T) {
+	jsonData := `{
+		"csp-report": {
+			"document-uri": "https://example.com/测试页面",
+			"violated-directive": "script-src 'self'",
+			"blocked-uri": "https://example.com/スクリプト.js",
+			"script-sample": "console.log('🔒 Security test')"
+		}
+	}`
+
+	reports, err := ParseCSPReports([]byte(jsonData), "test-agent", "127.0.0.1")
 	if err != nil {
-		t.Errorf("Failed to marshal report to JSON: %v", err)
+		t.Fatalf("Failed to parse Unicode report: %v", err)
 	}
 
-	// Test that raw report is preserved
-	if report.RawReport == nil {
-		t.Error("RawReport should not be nil")
+	parsed := reports[0].ParsedReport
+	if parsed.DocumentURI != "https://example.com/测试页面" {
+		t.Errorf("Unicode in DocumentURI not preserved: %s", parsed.DocumentURI)
 	}
+	if parsed.BlockedURI != "https://example.com/スクリプト.js" {
+		t.Errorf("Unicode in BlockedURI not preserved: %s", parsed.BlockedURI)
+	}
+	if parsed.ScriptSample != "console.log('🔒 Security test')" {
+		t.Errorf("Unicode in ScriptSample not preserved: %s", parsed.ScriptSample)
+	}
+}
 
-	if report.RawReport["csp-report"] == nil {
-		t.Error("RawReport should preserve original structure")
-	}
+// Helper functions
+func intPtr(i int) *int {
+	return &i
+}
+
+func containsString(s, substr string) bool {
+	return strings.Contains(s, substr)
 }

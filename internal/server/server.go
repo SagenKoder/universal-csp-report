@@ -83,21 +83,53 @@ func (s *Server) handleCSPReport(c *gin.Context) {
 
 	userAgent := c.GetHeader("User-Agent")
 	remoteAddr := c.ClientIP()
+	contentType := c.GetHeader("Content-Type")
 
-	report, err := models.ParseCSPReport(body, userAgent, remoteAddr)
+	s.logger.WithFields(logrus.Fields{
+		"content_type": contentType,
+		"body_size":    len(body),
+	}).Debug("Received CSP report")
+
+	// Parse reports (handles both single and batch)
+	reports, err := models.ParseCSPReports(body, userAgent, remoteAddr)
 	if err != nil {
 		s.logger.WithError(err).Error("Failed to parse CSP report")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid CSP report format"})
 		return
 	}
 
-	if err := s.processor.Submit(report); err != nil {
-		s.logger.WithError(err).Error("Failed to submit report for processing")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Processing error"})
+	// Submit all reports for processing
+	successCount := 0
+	errorCount := 0
+	for _, report := range reports {
+		if err := s.processor.Submit(report); err != nil {
+			s.logger.WithError(err).Error("Failed to submit report for processing")
+			errorCount++
+		} else {
+			successCount++
+		}
+	}
+
+	// Return appropriate response
+	if errorCount > 0 && successCount == 0 {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process reports"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"status": "received"})
+	response := gin.H{
+		"status":   "received",
+		"accepted": successCount,
+	}
+	if errorCount > 0 {
+		response["errors"] = errorCount
+	}
+
+	// Chrome expects 204 No Content for batch reports
+	if contentType == "application/reports+json" && len(reports) > 1 {
+		c.Status(http.StatusNoContent)
+	} else {
+		c.JSON(http.StatusOK, response)
+	}
 }
 
 func (s *Server) handleHealth(c *gin.Context) {
