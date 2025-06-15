@@ -17,47 +17,12 @@ jobs:
       with:
         fetch-depth: 0
 
-    - name: Generate changelog
-      id: changelog
-      run: |
-        # Get the previous tag
-        PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
-        
-        # Generate changelog
-        if [ -n "$PREVIOUS_TAG" ]; then
-          echo "## Changes since $PREVIOUS_TAG" > CHANGELOG.md
-          echo "" >> CHANGELOG.md
-          git log --pretty=format:"* %s (%h)" $PREVIOUS_TAG..HEAD >> CHANGELOG.md
-        else
-          echo "## Initial Release" > CHANGELOG.md
-          echo "" >> CHANGELOG.md
-          echo "First release of Universal CSP Report Processor" >> CHANGELOG.md
-        fi
-        
-        # Set output for use in release
-        {
-          echo 'changelog<<EOF'
-          cat CHANGELOG.md
-          echo 'EOF'
-        } >> $GITHUB_OUTPUT
-
     - name: Create Release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      uses: softprops/action-gh-release@v1
       with:
-        tag_name: ${{ github.ref_name }}
-        release_name: ${{ github.ref_name }}
+        generate_release_notes: true
         body: |
-          ## Universal CSP Report Processor ${{ github.ref_name }}
-          
-          ${{ steps.changelog.outputs.changelog }}
-          
-          ---
-          
           ### Docker Image
           ```bash
           docker pull ghcr.io/sagenkoder/universal-csp-report:latest
           ```
-        draft: false
-        prerelease: false
