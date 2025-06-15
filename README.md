@@ -1,29 +1,15 @@
 # Universal CSP Report Processor
 
-[![CI/CD Pipeline](https://github.com/SagenKoder/universal-csp-report/actions/workflows/ci.yml/badge.svg)](https://github.com/SagenKoder/universal-csp-report/actions/workflows/ci.yml)
-[![Security Scanning](https://github.com/SagenKoder/universal-csp-report/actions/workflows/security.yml/badge.svg)](https://github.com/SagenKoder/universal-csp-report/actions/workflows/security.yml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/SagenKoder/universal-csp-report)](https://goreportcard.com/report/github.com/SagenKoder/universal-csp-report)
-[![codecov](https://codecov.io/gh/SagenKoder/universal-csp-report/branch/master/graph/badge.svg)](https://codecov.io/gh/SagenKoder/universal-csp-report)
-[![Docker Pulls](https://img.shields.io/docker/pulls/ghcr.io/sagenkoder/universal-csp-report)](https://github.com/SagenKoder/universal-csp-report/pkgs/container/universal-csp-report)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![CI Pipeline](https://github.com/SagenKoder/universal-csp-report/actions/workflows/ci.yml/badge.svg)](https://github.com/SagenKoder/universal-csp-report/actions/workflows/ci.yml)
 
 A high-performance Go application that processes Content Security Policy (CSP) violation reports from all major browsers. It handles the inconsistencies between different browser implementations and provides both human-readable output and structured Elasticsearch indexing.
 
 ## Features
 
-- **Universal Browser Support**: Dynamically handles CSP reports from Chrome, Firefox, Safari, and Edge
-- **High Performance**: Supports bursts of 100,000+ requests per minute using goroutines and batch processing
-- **Elasticsearch Integration**: Automatically indexes reports with daily indices and proper field mappings
-- **Rate Limiting**: Built-in rate limiting to prevent abuse
-- **Flexible Configuration**: Environment-based configuration with sensible defaults
+- **Universal Browser Support**: Handles CSP reports from Chrome, Firefox, Safari, and Edge
+- **High Performance**: Supports 100,000+ requests per minute with batch processing
+- **Elasticsearch Integration**: Automatic daily indices with proper field mappings
 - **Docker Ready**: Complete Docker setup with Elasticsearch and Kibana
-
-## Architecture
-
-- **HTTP Server**: Gin-based server with middleware for logging, rate limiting, and metrics
-- **Batch Processor**: Worker pool pattern with configurable batch sizes and flush intervals
-- **Dynamic Parsing**: Handles various CSP report formats from different browsers
-- **Elasticsearch Storage**: Bulk indexing with daily indices and optimized mappings
 
 ## Quick Start
 
@@ -145,16 +131,6 @@ Returns processing statistics including queue size, processed totals, and error 
 
 ## Production Deployment
 
-For production use:
-
-1. **Scale Configuration**: Increase worker count and batch sizes
-2. **Elasticsearch Cluster**: Use a proper ES cluster with replicas
-3. **Load Balancing**: Deploy multiple instances behind a load balancer
-4. **Monitoring**: Set up proper monitoring and alerting
-5. **Security**: Configure authentication and network security
-
-### Example Production Configuration
-
 ```bash
 PRODUCTION=true
 WORKER_COUNT=50
@@ -186,54 +162,20 @@ Processed reports are stored in Elasticsearch with this structure:
 }
 ```
 
-## Performance Tuning
 
-For high-traffic scenarios:
+## Development
 
-1. **Increase Workers**: More workers for parallel processing
-2. **Larger Batches**: Reduce Elasticsearch overhead
-3. **Shorter Flush Intervals**: Reduce memory usage
-4. **Rate Limiting**: Protect against abuse
-5. **Resource Allocation**: Ensure adequate CPU and memory
+### Requirements
+- Go 1.23+
+- Docker (optional)
+- Elasticsearch 8.x
 
-The application is designed to handle 100,000+ requests per minute with proper configuration and infrastructure.
+### Building
+```bash
+go build -o universal-csp-report .
+```
 
-## Development & CI/CD
-
-### GitHub Actions Workflows
-
-This project includes comprehensive CI/CD pipelines:
-
-- **CI/CD Pipeline** (`ci.yml`): 
-  - Multi-version Go testing (1.21, 1.22)
-  - Code linting with golangci-lint
-  - Security scanning with gosec and Trivy
-  - Integration tests with Elasticsearch
-  - Docker build and push to GitHub Container Registry
-  - Cross-platform binary releases
-
-- **Security Scanning** (`security.yml`):
-  - Daily CodeQL analysis
-  - Dependency vulnerability scanning with Nancy and govulncheck
-  - Container security scanning
-
-- **Release Automation** (`release.yml`):
-  - Automatic releases on git tags
-  - Multi-platform binary builds (Linux, macOS, Windows on amd64/arm64)
-  - Container images with SBOM generation
-  - Automated changelog generation
-
-### Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes with tests
-4. Push and create a pull request
-
-All PRs trigger the full CI pipeline including tests, security scans, and integration tests.
-
-### Container Registry
-
-Official images are available at:
-- `ghcr.io/sagenkoder/universal-csp-report:latest`
-- `ghcr.io/sagenkoder/universal-csp-report:v1.0.0` (tagged versions)
+### Testing
+```bash
+go test ./...
+```
